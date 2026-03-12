@@ -4,10 +4,10 @@ import { supabase } from '../lib/supabaseClient';
 import { extractTextFromPDF } from '../utils/pdfExtractor';
 import bcrypt from 'bcryptjs';
 
-/** Encode each path segment so chars like # don't break the URL */
+/** Escape # in paths so it doesn't get treated as a URL fragment */
 function encodedPublicUrl(filePath) {
-    const encoded = filePath.split('/').map(s => encodeURIComponent(s)).join('/');
-    const { data } = supabase.storage.from('magazines').getPublicUrl(encoded);
+    const safePath = filePath.replace(/#/g, '%23');
+    const { data } = supabase.storage.from('magazines').getPublicUrl(safePath);
     return data.publicUrl;
 }
 const ALLOWED_DOMAINS = ['@maloon.de', '@socialhub.io'];
