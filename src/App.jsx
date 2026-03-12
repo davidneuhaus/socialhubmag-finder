@@ -1,94 +1,65 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import SearchHero from './components/SearchHero';
 import ResultCard from './components/ResultCard';
-import { extractAllPDFs } from './utils/pdfExtractor';
-import { searchPages } from './utils/search';
+import PdfPreview from './components/PdfPreview';
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminRoute from './components/AdminRoute';
+import { searchSupabase } from './utils/supabaseSearch';
+import { supabase } from './lib/supabaseClient';
+import { useAuth } from './context/AuthContext';
 
-// Magazine list — hardcoded for Phase 1
-const MAGAZINES = [
-  { url: '/mags/socialhub-mag-10.pdf', name: 'SocialHub Mag #10' },
-];
-
-export default function App() {
-  const [pages, setPages] = useState([]);
+function SearchPage() {
   const [results, setResults] = useState(null);
   const [query, setQuery] = useState('');
-  const [isIndexing, setIsIndexing] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
-  const [indexProgress, setIndexProgress] = useState(0);
   const [error, setError] = useState(null);
-  const pagesRef = useRef([]);
+  const [selectedResult, setSelectedResult] = useState(null);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalMags, setTotalMags] = useState(0);
+  const { admin } = useAuth();
 
-  // Index PDFs on mount
+  // Fetch stats on mount
   useEffect(() => {
-    let cancelled = false;
+    async function fetchStats() {
+      const { count: pageCount } = await supabase
+        .from('magazine_pages')
+        .select('*', { count: 'exact', head: true });
 
-    async function indexPDFs() {
-      try {
-        const allPages = await extractAllPDFs(MAGAZINES, (done, total) => {
-          if (!cancelled) setIndexProgress((done / total) * 100);
-        });
-        if (!cancelled) {
-          pagesRef.current = allPages;
-          setPages(allPages);
-          setIsIndexing(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError('Failed to index magazines. Please refresh and try again.');
-          setIsIndexing(false);
-          console.error('Indexing error:', err);
-        }
-      }
+      const { count: magCount } = await supabase
+        .from('magazines')
+        .select('*', { count: 'exact', head: true });
+
+      setTotalPages(pageCount || 0);
+      setTotalMags(magCount || 0);
     }
-
-    indexPDFs();
-    return () => { cancelled = true; };
+    fetchStats();
   }, []);
 
-  const handleSearch = (searchQuery) => {
+  const handleSearch = async (searchQuery) => {
     setIsSearching(true);
     setQuery(searchQuery);
     setError(null);
+    setSelectedResult(null);
 
-    // Use requestAnimationFrame to let the UI update first
-    requestAnimationFrame(() => {
-      try {
-        const searchResults = searchPages(pagesRef.current, searchQuery);
-        setResults(searchResults);
-      } catch (err) {
-        setError('Search failed. Please try again.');
-        console.error('Search error:', err);
-      }
-      setIsSearching(false);
-    });
+    try {
+      const searchResults = await searchSupabase(searchQuery);
+      setResults(searchResults);
+    } catch (err) {
+      setError('Search failed. Please try again.');
+      console.error('Search error:', err);
+    }
+    setIsSearching(false);
   };
 
   return (
-    <div className="app">
-      {/* Branded accent stripe at the very top */}
-      <div className="accent-stripe">
-        <span className="s-yellow" />
-        <span className="s-amethyst" />
-        <span className="s-mauve" />
-        <span className="s-frost" />
-        <span className="s-emerald" />
-      </div>
-
-      {/* Navbar with SocialHub:) logo */}
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <span className="navbar-logo-text">SocialHub</span>
-          <span className="navbar-logo-smiley">:)</span>
-        </div>
-        <span className="navbar-tagline">Magazine Archive</span>
-      </nav>
-
+    <>
       <SearchHero
         onSearch={handleSearch}
         isLoading={isSearching}
-        isIndexing={isIndexing}
-        indexProgress={indexProgress}
+        isIndexing={false}
+        indexProgress={100}
       />
 
       {error && (
@@ -99,53 +70,120 @@ export default function App() {
 
       {results !== null && !isSearching && (
         <section className="results-section">
-          <div className="results-container">
-            <div className="results-header">
-              <h2 className="results-title">
-                {results.length > 0 ? (
-                  <>
-                    Found <span className="result-count">{results.length}</span> result
-                    {results.length !== 1 ? 's' : ''} for "{query}"
-                  </>
-                ) : (
-                  <>No results found for "{query}"</>
+          <div className={`results-layout ${selectedResult ? 'with-preview' : ''}`}>
+            <div className="results-container">
+              <div className="results-header">
+                <h2 className="results-title">
+                  {results.length > 0 ? (
+                    <>
+                      Found <span className="result-count">{results.length}</span> result
+                      {results.length !== 1 ? 's' : ''} for &quot;{query}&quot;
+                    </>
+                  ) : (
+                    <>No results found for &quot;{query}&quot;</>
+                  )}
+                </h2>
+                {results.length > 0 && (
+                  <span className="results-subtitle">
+                    Searched across {totalPages} pages in {totalMags} magazine
+                    {totalMags !== 1 ? 's' : ''}
+                  </span>
                 )}
-              </h2>
-              {results.length > 0 && (
-                <span className="results-subtitle">
-                  Searched across {pages.length} pages in {MAGAZINES.length} magazine
-                  {MAGAZINES.length !== 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-
-            {results.length === 0 && (
-              <div className="no-results">
-                <div className="no-results-icon">🔍</div>
-                <p>Try different keywords or a shorter search term</p>
               </div>
-            )}
 
-            <div className="results-list">
-              {results.map((result, i) => (
-                <ResultCard
-                  key={`${result.magazine}-${result.page}`}
-                  result={result}
-                  query={query}
-                  index={i}
-                />
-              ))}
+              {results.length === 0 && (
+                <div className="no-results">
+                  <div className="no-results-icon">🔍</div>
+                  <p>Try different keywords or a shorter search term</p>
+                </div>
+              )}
+
+              <div className="results-list">
+                {results.map((result, i) => (
+                  <ResultCard
+                    key={`${result.magazine}-${result.page}`}
+                    result={result}
+                    query={query}
+                    index={i}
+                    isSelected={selectedResult?.id === result.id}
+                    onClick={() =>
+                      setSelectedResult(
+                        selectedResult?.id === result.id ? null : result
+                      )
+                    }
+                  />
+                ))}
+              </div>
             </div>
+
+            {selectedResult && (
+              <PdfPreview
+                result={selectedResult}
+                query={query}
+                onClose={() => setSelectedResult(null)}
+                isAdmin={!!admin}
+              />
+            )}
           </div>
         </section>
       )}
 
       <footer className="app-footer">
         <p>
-          <a href="https://socialhub.io">SocialHub:)</a> Mag Finder · {pages.length} pages indexed from {MAGAZINES.length} magazine
-          {MAGAZINES.length !== 1 ? 's' : ''}
+          <a href="https://socialhub.io">SocialHub:)</a> Mag Finder · {totalPages} pages indexed from {totalMags} magazine
+          {totalMags !== 1 ? 's' : ''}
         </p>
       </footer>
+    </>
+  );
+}
+
+export default function App() {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
+  if (isAdminRoute) {
+    return (
+      <Routes>
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+      </Routes>
+    );
+  }
+
+  return (
+    <div className="app">
+      {/* Branded accent stripe */}
+      <div className="accent-stripe">
+        <span className="s-yellow" />
+        <span className="s-amethyst" />
+        <span className="s-mauve" />
+        <span className="s-frost" />
+        <span className="s-emerald" />
+      </div>
+
+      {/* Navbar with SocialHub logo */}
+      <nav className="navbar">
+        <Link to="/" className="navbar-logo">
+          <img
+            src="https://socialhub.io/wp-content/uploads/socialhub_wb_n_primary_RGB.svg"
+            alt="SocialHub"
+            className="navbar-logo-img"
+          />
+        </Link>
+        <span className="navbar-tagline">Magazine Archive</span>
+      </nav>
+
+      <Routes>
+        <Route path="/" element={<SearchPage />} />
+      </Routes>
     </div>
   );
 }

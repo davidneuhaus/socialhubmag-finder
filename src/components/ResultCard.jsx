@@ -1,12 +1,16 @@
-import { highlightSnippet } from '../utils/search';
+import { highlightSnippet } from '../utils/supabaseSearch';
 
-export default function ResultCard({ result, query, index }) {
+export default function ResultCard({ result, query, index, isSelected, onClick }) {
     const segments = highlightSnippet(result.snippet, query);
 
     return (
         <article
-            className="result-card"
+            className={`result-card ${isSelected ? 'result-card-selected' : ''}`}
             style={{ animationDelay: `${index * 0.05}s` }}
+            onClick={onClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
         >
             <div className="result-header">
                 <div className="result-magazine">
@@ -32,6 +36,9 @@ export default function ResultCard({ result, query, index }) {
                         <span key={i}>{seg.text}</span>
                     )
                 )}
+            </div>
+            <div className="result-card-hint">
+                {isSelected ? 'Click to close preview' : 'Click to preview page'}
             </div>
         </article>
     );

@@ -104,19 +104,9 @@ body {
   text-decoration: none;
 }
 
-.navbar-logo-text {
-  font-family: var(--font-heading);
-  font-weight: 900;
-  font-size: 1.4rem;
-  color: var(--social-yellow);
-  letter-spacing: -0.02em;
-}
-
-.navbar-logo-smiley {
-  font-family: var(--font-heading);
-  font-weight: 900;
-  font-size: 1.4rem;
-  color: var(--social-yellow);
+.navbar-logo-img {
+  height: 30px;
+  width: auto;
 }
 
 .navbar-tagline {
