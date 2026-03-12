@@ -76,7 +76,7 @@ export default function AdminDashboard() {
                 setUploadProgress(`Processing "${magName}"...`);
 
                 // 1. Upload PDF to Supabase Storage
-                const safeName = file.name.replace(/[#?&%+]/g, '_');
+                const safeName = file.name.replace(/[#?&%+ ]/g, '_');
                 const filePath = `pdfs/${Date.now()}_${safeName}`;
                 setUploadProgress(`Uploading "${magName}" to storage...`);
 
