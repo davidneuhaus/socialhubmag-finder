@@ -178,7 +178,7 @@ export default function App() {
             className="navbar-logo-img"
           />
         </Link>
-        <span className="navbar-tagline">Magazine Archive</span>
+        <a href="https://socialhub.io/magazin/" target="_blank" rel="noopener noreferrer" className="navbar-tagline">Magazine Archive</a>
       </nav>
 
       <Routes>

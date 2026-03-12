@@ -24,7 +24,7 @@ export default function SearchHero({ onSearch, isLoading, isIndexing, indexProgr
                 </div>
                 <h1 className="hero-title">
                     Find anything in
-                    <span className="gradient-text"> your magazines</span>
+                    <span className="gradient-text"> your SocialHub Magazines</span>
                 </h1>
                 <p className="hero-subtitle">
                     Search across all SocialHub magazines instantly.
