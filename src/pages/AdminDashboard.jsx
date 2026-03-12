@@ -4,11 +4,13 @@ import { supabase } from '../lib/supabaseClient';
 import { extractTextFromPDF } from '../utils/pdfExtractor';
 import bcrypt from 'bcryptjs';
 
-/** Build a properly-encoded public Storage URL without relying on getPublicUrl (which double-encodes) */
-function encodedPublicUrl(filePath) {
-    const base = import.meta.env.VITE_SUPABASE_URL;
-    const encoded = filePath.split('/').map(s => encodeURIComponent(s)).join('/');
-    return `${base}/storage/v1/object/public/magazines/${encoded}`;
+/** Create a signed URL for a file in the magazines bucket */
+async function getSignedUrl(filePath, expiresInSeconds = 3600) {
+    const { data, error } = await supabase.storage
+        .from('magazines')
+        .createSignedUrl(filePath, expiresInSeconds);
+    if (error) throw new Error(`Signed URL failed: ${error.message}`);
+    return data.signedUrl;
 }
 const ALLOWED_DOMAINS = ['@maloon.de', '@socialhub.io'];
 
@@ -293,15 +295,20 @@ export default function AdminDashboard() {
                                             </span>
                                         </div>
                                         <div className="magazine-item-actions">
-                                            <a
-                                                href={encodedPublicUrl(mag.file_path)}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                            <button
                                                 className="admin-btn admin-btn-secondary"
                                                 title="Direct download (admin only)"
+                                                onClick={async () => {
+                                                    try {
+                                                        const url = await getSignedUrl(mag.file_path);
+                                                        window.open(url, '_blank');
+                                                    } catch (e) {
+                                                        console.error('Download failed:', e);
+                                                    }
+                                                }}
                                             >
                                                 ⬇️ Download
-                                            </a>
+                                            </button>
                                             <button
                                                 className="admin-btn admin-btn-danger"
                                                 onClick={() => handleDeleteMagazine(mag)}

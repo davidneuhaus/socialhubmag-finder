@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '../lib/supabaseClient';
 
-/** Build a properly-encoded public Storage URL without relying on getPublicUrl (which double-encodes) */
-function encodedPublicUrl(filePath) {
-    const base = import.meta.env.VITE_SUPABASE_URL;
-    const encoded = filePath.split('/').map(s => encodeURIComponent(s)).join('/');
-    return `${base}/storage/v1/object/public/magazines/${encoded}`;
+/** Create a signed URL for a file in the magazines bucket (works even if bucket is not public) */
+async function getSignedUrl(filePath, expiresInSeconds = 3600) {
+    const { data, error } = await supabase.storage
+        .from('magazines')
+        .createSignedUrl(filePath, expiresInSeconds);
+    if (error) throw new Error(`Signed URL failed: ${error.message}`);
+    return data.signedUrl;
 }
 
 /**
@@ -38,8 +40,8 @@ export default function PdfPreview({ result, query, onClose, isAdmin }) {
 
             if (!mag) throw new Error('Magazine not found');
 
-            // Get public URL from Supabase Storage (encode path segments)
-            const pdfUrl = encodedPublicUrl(mag.file_path);
+            // Get signed URL for PDF access (works even if bucket isn't public)
+            const pdfUrl = await getSignedUrl(mag.file_path);
 
             // Load PDF and render specific page
             const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
@@ -153,7 +155,7 @@ function AdminDownloadButton({ magazineId }) {
     const [url, setUrl] = useState(null);
 
     useEffect(() => {
-        async function getUrl() {
+        async function fetchUrl() {
             const { data: mag } = await supabase
                 .from('magazines')
                 .select('file_path')
@@ -161,10 +163,15 @@ function AdminDownloadButton({ magazineId }) {
                 .single();
 
             if (mag) {
-                setUrl(encodedPublicUrl(mag.file_path));
+                try {
+                    const signed = await getSignedUrl(mag.file_path);
+                    setUrl(signed);
+                } catch (e) {
+                    console.error('Failed to get signed URL:', e);
+                }
             }
         }
-        getUrl();
+        fetchUrl();
     }, [magazineId]);
 
     if (!url) return null;
