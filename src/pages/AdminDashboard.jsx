@@ -4,6 +4,12 @@ import { supabase } from '../lib/supabaseClient';
 import { extractTextFromPDF } from '../utils/pdfExtractor';
 import bcrypt from 'bcryptjs';
 
+/** Encode each path segment so chars like # don't break the URL */
+function encodedPublicUrl(filePath) {
+    const encoded = filePath.split('/').map(s => encodeURIComponent(s)).join('/');
+    const { data } = supabase.storage.from('magazines').getPublicUrl(encoded);
+    return data.publicUrl;
+}
 const ALLOWED_DOMAINS = ['@maloon.de', '@socialhub.io'];
 
 export default function AdminDashboard() {
@@ -288,7 +294,7 @@ export default function AdminDashboard() {
                                         </div>
                                         <div className="magazine-item-actions">
                                             <a
-                                                href={supabase.storage.from('magazines').getPublicUrl(mag.file_path).data.publicUrl}
+                                                href={encodedPublicUrl(mag.file_path)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="admin-btn admin-btn-secondary"

@@ -2,6 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '../lib/supabaseClient';
 
+/** Encode each path segment so chars like # don't break the URL */
+function encodedPublicUrl(filePath) {
+    const encoded = filePath.split('/').map(s => encodeURIComponent(s)).join('/');
+    const { data } = supabase.storage.from('magazines').getPublicUrl(encoded);
+    return data.publicUrl;
+}
+
 /**
  * PDF Page Preview panel — renders a specific page from a PDF stored in Supabase
  * and highlights search terms on the canvas.
@@ -31,12 +38,8 @@ export default function PdfPreview({ result, query, onClose, isAdmin }) {
 
             if (!mag) throw new Error('Magazine not found');
 
-            // Get public URL from Supabase Storage
-            const { data: urlData } = supabase.storage
-                .from('magazines')
-                .getPublicUrl(mag.file_path);
-
-            const pdfUrl = urlData.publicUrl;
+            // Get public URL from Supabase Storage (encode path segments)
+            const pdfUrl = encodedPublicUrl(mag.file_path);
 
             // Load PDF and render specific page
             const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
@@ -158,10 +161,7 @@ function AdminDownloadButton({ magazineId }) {
                 .single();
 
             if (mag) {
-                const { data } = supabase.storage
-                    .from('magazines')
-                    .getPublicUrl(mag.file_path);
-                setUrl(data.publicUrl);
+                setUrl(encodedPublicUrl(mag.file_path));
             }
         }
         getUrl();
